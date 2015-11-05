@@ -1,11 +1,13 @@
 #include <sstream>
 #include <iostream>
+#include <string>
 #include <vector>
 
 void hello(std::vector < std::string > arg)
 {
-	arg=arg;
-	std::cout<<"Hello mox!"<<std::endl;
+	int iterations = arg.size() >= 2 ? std::stoi(arg[1]) : 1;
+	for(int i=0; i < iterations; i++)
+		std::cout<<"Hello mox!"<<std::endl;
 }
 
 void goodbye(std::vector < std::string > arg)
@@ -17,39 +19,52 @@ void goodbye(std::vector < std::string > arg)
 
 class Command_parser
 {
-		struct Command
+	struct Command
+	{
+		const std::string name;
+		const std::string args;
+		const std::string description;
+		void (*command)(std::vector < std::string >);
+		uint8_t operator()(std::vector < std::string > arg) const
 		{
-			const std::string name;
-			const std::string description;
-			void (*command)(std::vector < std::string >); const
-			uint8_t operator()(std::vector < std::string > arg) const
-			{
-				command(arg);
-				return 1;
-			}
-		};
-
-		friend bool operator == (std::string const& lhs, Command_parser::Command const& rhs);
-		uint8_t print_help()
-		{
-			std::cout<<"Possible command line arguments are:"<<std::endl;
-			for (auto &command : command_list)
-			{
-				std::cout<<command.name<<": "<<command.description<<std::endl;
-			}
-			return 1;
+			command(arg);
+			return 1;		// The return value is used to set the flag that says that a matching command was found
 		}
-
-
-		std::vector < Command > command_list =
+	};
+	uint8_t max_cmd_length=0;
+	void update_max_cmd_length()
+	{
+		for (auto &command : command_list)
 		{
-			{ "help", "Print this help message.", nullptr },
-			{ "foo", "Write foo to the console.", [](std::vector < std::string > arg){std::cout<<"foobarasdfasdf"<<std::endl;} },
-		};
+			if(command.name.length() > max_cmd_length) max_cmd_length = command.name.length();
+		}
+	}
+	uint8_t max_arg_length=0;
+	void update_max_arg_length()
+	{
+		for (auto &command : command_list)
+		{
+			if(command.args.length() > max_arg_length) max_arg_length = command.args.length();
+		}
+	}
+
+	friend bool operator == (std::string const& lhs, Command_parser::Command const& rhs);
+	uint8_t print_help()
+	{
+		std::cout<<"Possible command line arguments are:"<<std::endl;
+		for (auto &command : command_list)
+		{
+			std::string name(command.name);
+			name.resize(max_cmd_length, ' ');
+			std::string args(command.args);
+			args.resize(max_arg_length, ' ');
+			std::cout<<name<<" : "<<args<<" : "<<command.description<<std::endl;
+		}
+		return 1;
+	}
 
 
-
-
+	std::vector < Command > command_list;
 
 	public:
 		bool operator()(std::string command_line_input)
@@ -64,10 +79,10 @@ class Command_parser
 					commandline_tokens.push_back(fragment);
 				}
 			}
-			uint8_t test = 0;
+			uint8_t test = (commandline_tokens[0] == "help" && print_help());
 			for (auto &command : command_list)
 			{
-				test |= (commandline_tokens[0] == command && ((command.command && command(commandline_tokens)) || print_help() ));
+				test |= (commandline_tokens[0] == command && command.command && command(commandline_tokens));
 			}
 			if(!test)
 			{
@@ -80,16 +95,15 @@ class Command_parser
 		void add_command(const Command& command)
 		{
 			command_list.push_back(command);
+			if(command.name.length() > max_cmd_length) max_cmd_length = command.name.length();
+			if(command.args.length() > max_arg_length) max_arg_length = command.args.length();
 		}
 
 		Command_parser() {};
-		Command_parser(std::initializer_list < Command > sizes)
+		Command_parser(std::initializer_list < Command > Commands) : command_list(Commands)
 		{
-			for (auto i = sizes.begin(); i != sizes.end(); ++i)
-			{
-				Command cmd = *i;
-				add_command(*i);
-			}
+			update_max_cmd_length();
+			update_max_arg_length();
 		}
 };
 
@@ -103,9 +117,15 @@ bool operator == (std::string const& lhs, Command_parser::Command const& rhs)
 
 Command_parser cmd_parse =
 {
-	{ "hello", "do the harlem shake", hello },
-	{ "goodbye", "wuuuf", goodbye },
-	{ "good", "wuuuf", goodbye },
+	{ "hello", "Number of iterations", "do the harlem shake", hello },
+	{ "goodbye", "none", "wuuuf", goodbye },
+	{ "good", "none", "wuuuf", goodbye },
+	{ "foo", "none", "Write foo to the console.", [] (std::vector < std::string > arg){ std::cout<<"foobarasdfasdf"<<std::endl;
+	  }
+	},
+	{ "+", "none", "Increase volume.", [] (std::vector < std::string > arg){ std::cout<<"foobarasdfasdf"<<std::endl;
+	  }
+	},
 };
 
 int main()
@@ -114,7 +134,8 @@ int main()
 
 	std::cout<<"cmd> "<<std::flush;
 	std::string command;
-	std::cin>>command;
+	//std::cin>>command;
+	std::getline(std::cin, command);
 
 
 	cmd_parse(command);
