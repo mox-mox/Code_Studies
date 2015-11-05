@@ -1,0 +1,4 @@
+This is an experiment how to access hardware registers in a safe way.
+The second intention was to hide the special access to registers not directly accessible, but only by using some nontransparent bus system like SPI or others.
+
+See also https://github.com/kensmith/cppmmio for another cool and more mature way.
